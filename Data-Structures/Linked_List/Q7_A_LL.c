@@ -101,7 +101,6 @@ void RecursiveReverse(ListNode **ptrHead)
 
 	first->next->next = first;
 	first->next = NULL;
-
 	*ptrHead = rest;
 }
 
@@ -195,7 +194,7 @@ int removeNode(LinkedList *ll, int index){
 		ll->size--;
 
 		return 0;
-	}
+	} // 안녕하세요 바보압니다
 
 	// Find the nodes before and after the target position
 	// Free the target node and reconnect the links

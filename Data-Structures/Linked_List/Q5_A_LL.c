@@ -109,9 +109,9 @@ void frontBackSplitLinkedList(LinkedList *ll, LinkedList *resultFrontList, Linke
 	ListNode *front_tail = NULL;
 	ListNode *back_tail = NULL;
 	int cnt = 0;
-	int target = ll->size / 2;
+	int target = ll->size / 2; // 목표 위치
 
-	if(ll->size % 2 == 0){
+	if(ll->size % 2 == 0){ // 총 갯수가 짝수일 때
 		while(cur != NULL){
 			if(cnt < target){
 				if(front_head == NULL){
@@ -137,7 +137,7 @@ void frontBackSplitLinkedList(LinkedList *ll, LinkedList *resultFrontList, Linke
 			cnt++;
 		}
 	}
-	else{
+	else{				// 총 갯수가 홀수일 때
 		while(cur != NULL){
 			if(cnt <= target){
 				if(front_head == NULL){
@@ -164,7 +164,7 @@ void frontBackSplitLinkedList(LinkedList *ll, LinkedList *resultFrontList, Linke
 		}
 	}
 
-	front_tail->next = NULL;
+	front_tail->next = NULL; //앞 부분 마지막 처리
 
 	resultFrontList->head = front_head;
 	resultBackList->head = back_head;

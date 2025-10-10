@@ -86,30 +86,30 @@ int main()
 
 void moveOddItemsToBack(LinkedList *ll)
 {
-	/* add your code here */
 	ListNode *cur = ll->head;
 	ListNode *even_head = NULL;
 	ListNode *even_tail = NULL;
 	ListNode *odd_head = NULL;
 	ListNode *odd_tail = NULL;
+	ListNode *tmp;
 
 	if(ll == NULL || ll->head == NULL){
 		return;
 	}
 
 	while(cur != NULL){
-		ListNode *tmp = cur->next;
-		if(cur->item % 2 == 0){
+		tmp = cur->next; // 다음 위치 기억
+		if(cur->item % 2 == 0){ // 짝수
 			if(even_head == NULL){
 				even_head = cur;
 				even_tail = cur;
 			}
 			else{
 				even_tail->next = cur;
-				even_tail = cur;
+				even_tail = even_tail->next;
 			}
 		}
-		else{
+		else{ 					// 홀수
 			if(odd_head == NULL){
 				odd_head = cur;
 				odd_tail = cur;
@@ -119,17 +119,17 @@ void moveOddItemsToBack(LinkedList *ll)
 				odd_tail = cur;
 			}
 		}
-		cur = tmp;
+		cur = tmp; // 다음으로 넘기기
 	}
 
-	if(even_head == NULL){
+	if(even_head == NULL){ // 짝수가 없을 때
 		ll->head = odd_head;
 	}
 	else{
 		even_tail->next = odd_head;
 		ll->head = even_head;
 	}
-	if(odd_tail != NULL){
+	if(odd_tail != NULL){ // 마지막 NULL처리
 		odd_tail->next = NULL;
 	}
 }

@@ -90,41 +90,39 @@ int main()
 
 int insertSortedLL(LinkedList *ll, int item)
 {
-	/* add your code here */
-	ListNode *cur;
+	if (ll == NULL){ //리스트 NULL일 때
+		// free(tmp);
+		return -1;
+	}
+
+	ListNode *cur = ll->head; 
 	ListNode *tmp;
 
-	tmp = (ListNode *)malloc(sizeof(ListNode));
+	tmp = (ListNode *)malloc(sizeof(ListNode)); //새로운 노드
 	if (tmp == NULL) return -1;
 	tmp->item = item;
 	tmp->next = NULL;
 
-	if (ll == NULL){
-		free(tmp);
-		return -1;
-	}
+	int cnt = 1; //인덱스
 
-	cur = ll->head;
-	int cnt = 1;
-
-    if (ll->head == NULL || item < ll->head->item) {
+    if (ll->head == NULL || item < ll->head->item) { //리스트의 처음이 NULL이거나 첫번째 값이 클 때
         tmp->next = ll->head;
         ll->head = tmp;
 		ll->size++; 
         return 0;
     }
 
-	while (cur->next != NULL && cur->next->item < item) {
+	while (cur->next != NULL && cur->next->item < item) { //while문으로 넘기기
 		cur = cur->next;
 		cnt++;
 	}
 
-	if (cur->next != NULL && cur->next->item == item ) {
+	if (cur->next != NULL && cur->next->item == item ) { //같을 때
 		free(tmp);
-		return -2;
+		return -1;
 	}
 
-	tmp->next = cur->next;
+	tmp->next = cur->next; //클 때
 	cur->next = tmp;
 	
 	return cnt;

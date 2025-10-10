@@ -104,28 +104,25 @@ int main()
 void alternateMergeLinkedList(LinkedList *ll1, LinkedList *ll2)
 {
     /* add your code here */
-	ListNode *cur1;
-	ListNode *cur2;
+	ListNode *cur1 = ll1->head;
+	ListNode *cur2 = ll2->head;
 	ListNode *tmp1;
 	ListNode *tmp2;
 
-	if (ll1 == NULL || ll2 == NULL || ll1->head == NULL || ll2->head == NULL) {
+	if (ll1 == NULL || ll2 == NULL || ll1->head == NULL || ll2->head == NULL) { // 둘 중 하나라도 NULL일 때
 		return;
 	}
 
-	cur1 = ll1->head;
-	cur2 = ll2->head;
-
 	while(cur1 != NULL && cur2 != NULL){
 
-		if(cur2 == NULL){
+		if(cur2 == NULL){ // 2번째 연결리스트가 NULL일 때 break
 			break;
 		}
 
 		tmp1 = cur1->next;
 		tmp2 = cur2->next;
 
-		if(cur1->next == NULL){
+		if(cur1->next == NULL){ // 1번째 연결리스트가 NULL일 때 cur1 뒤에 추가하고 break
 			cur2->next = tmp1;
 			cur1->next = cur2;
 			cur2 = tmp2;
@@ -137,7 +134,7 @@ void alternateMergeLinkedList(LinkedList *ll1, LinkedList *ll2)
 		cur2->next = tmp1;
 		cur1->next = cur2;
 
-		cur1 = tmp1;
+		cur1 = tmp1; //다음 위치
 		cur2 = tmp2;
 
 		ll1->size++;
@@ -145,7 +142,7 @@ void alternateMergeLinkedList(LinkedList *ll1, LinkedList *ll2)
 		
 	}
 
-	ll2->head = cur2;
+	ll2->head = cur2; //ll2의 머리를 while문 끝난 뒤 현재 위치로 옮기기
 
 }
 
