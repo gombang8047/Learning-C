@@ -104,6 +104,49 @@ int main()
 void alternateMergeLinkedList(LinkedList *ll1, LinkedList *ll2)
 {
     /* add your code here */
+	ListNode *cur1;
+	ListNode *cur2;
+	ListNode *tmp1;
+	ListNode *tmp2;
+
+	if (ll1 == NULL || ll2 == NULL || ll1->head == NULL || ll2->head == NULL) {
+		return;
+	}
+
+	cur1 = ll1->head;
+	cur2 = ll2->head;
+
+	while(cur1 != NULL && cur2 != NULL){
+
+		if(cur2 == NULL){
+			break;
+		}
+
+		tmp1 = cur1->next;
+		tmp2 = cur2->next;
+
+		if(cur1->next == NULL){
+			cur2->next = tmp1;
+			cur1->next = cur2;
+			cur2 = tmp2;
+			ll1->size++;
+			ll2->size--;
+			break;
+		}
+
+		cur2->next = tmp1;
+		cur1->next = cur2;
+
+		cur1 = tmp1;
+		cur2 = tmp2;
+
+		ll1->size++;
+		ll2->size--;
+		
+	}
+
+	ll2->head = cur2;
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
