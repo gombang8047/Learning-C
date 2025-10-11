@@ -104,6 +104,27 @@ int main()
 int isStackPairwiseConsecutive(Stack *s)
 {
   /* add your code here */
+	if(s == NULL || s->ll.head == NULL){
+		return -1;
+	}
+
+  	ListNode *cur = s->ll.head;
+	int item1;
+	int item2;
+
+	if(s->ll.size % 2 == 1){
+		return 0;
+	}
+	
+	while(!isEmptyStack(s)){
+		item1 = pop(s);
+		item2 = pop(s);
+		if(abs(item1 - item2) != 1){
+			return 0;
+		}
+	}
+
+	return 1;
 }
 
 //////////////////////////////////////////////////////////////////////////////////
