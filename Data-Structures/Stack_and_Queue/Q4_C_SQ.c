@@ -112,8 +112,7 @@ int main()
 
 void reverse(Queue *q)
 {
-/* add your code here */
-	if(q == NULL || q->ll.head == NULL){
+	if(q == NULL || q->ll.head == NULL){	// 유효성 검사
 		return;
 	}
 
@@ -124,12 +123,12 @@ void reverse(Queue *q)
 	tmp.ll.tail = 0;
 	int item;
 
-	while(!isEmptyQueue(q)){
+	while(!isEmptyQueue(q)){				// 큐에서 하나씩 빼서 스택에 넣고
 		item = dequeue(q);
 		push(&(tmp), item);
 	}
 
-	while(!isEmptyStack(&(tmp))){
+	while(!isEmptyStack(&(tmp))){			// 스택에 있는걸 다시 큐로 보낸다.
 		item = pop(&(tmp));
 		enqueue(q, item);
 	}

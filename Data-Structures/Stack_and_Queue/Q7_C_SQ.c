@@ -105,13 +105,12 @@ int main()
 ////////////////////////////////////////////////////////////
 int balanced(char *expression)
 {
-/* add your code here */
 	Stack tmp;
 	tmp.ll.head = NULL;
 	tmp.ll.size = 0;
 	char item;
 
-	for (int i = 0; i < strlen(expression); i++){
+	for (int i = 0; i < strlen(expression); i++){										// 스택에 (, [, { 가 들어오면 넣고 반대가 나오면 빼주면서 검사합니다.
 		if(expression[i] == '(' || expression[i] == '[' || expression[i] == '{'){
 			push(&tmp, expression[i]);
 		}

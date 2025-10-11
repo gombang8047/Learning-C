@@ -116,12 +116,11 @@ int main()
 
 void createQueueFromLinkedList(LinkedList *ll, Queue *q)
 {
-	/* add your code here */
-	if(q != NULL){
+	if(q != NULL){ 					// 큐에 남아있는게 있다면 비워준다.
 		removeAllItemsFromQueue(q);
 	}
 	ListNode *cur = ll->head;
-	while(cur != NULL)
+	while(cur != NULL)				// 큐에 리스트에 있는 요소 하나씩 넣는다.
 	{
 		enqueue(q, cur->item);
 		cur = cur->next;
@@ -130,20 +129,19 @@ void createQueueFromLinkedList(LinkedList *ll, Queue *q)
 
 void removeOddValues(Queue *q)
 {
-	/* add your code here */
-	if(q == NULL || q->ll.head == NULL){
+	if(q == NULL || q->ll.head == NULL){	// 유효성 검사
 		return;
 	}
 
 	ListNode *cur = q->ll.head;
-	ListNode *next_inspect = NULL;
+	ListNode *next_inspect = NULL;			// 다음 위치를 찾기위한 변수
 
 	int cur_idx = 0;
 	while(cur != NULL){
-		next_inspect = cur->next;
+		next_inspect = cur->next; 			// romove전 다음 위치 기억
 		if(cur->item % 2 == 1){
 			removeNode(&(q->ll), cur_idx);
-			cur_idx--;
+			cur_idx--;						// 제거하면 idx를 맞춰준다.
 		}
 		cur = next_inspect;
 		cur_idx++;

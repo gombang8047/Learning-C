@@ -103,8 +103,7 @@ int main()
 
 int isStackPairwiseConsecutive(Stack *s)
 {
-  /* add your code here */
-	if(s == NULL || s->ll.head == NULL){
+	if(s == NULL || s->ll.head == NULL){	// 유효성 검사
 		return -1;
 	}
 
@@ -112,11 +111,11 @@ int isStackPairwiseConsecutive(Stack *s)
 	int item1;
 	int item2;
 
-	if(s->ll.size % 2 == 1){
+	if(s->ll.size % 2 == 1){				// 스택에 있는 요소의 갯수가 홀수면 바로 리턴
 		return 0;
 	}
 	
-	while(!isEmptyStack(s)){
+	while(!isEmptyStack(s)){				// 팝을 두번하고 그 값들의 차가 1이 안되면 리턴
 		item1 = pop(s);
 		item2 = pop(s);
 		if(abs(item1 - item2) != 1){
@@ -124,7 +123,7 @@ int isStackPairwiseConsecutive(Stack *s)
 		}
 	}
 
-	return 1;
+	return 1;								// 위에 해당이 안될때 리턴1
 }
 
 //////////////////////////////////////////////////////////////////////////////////

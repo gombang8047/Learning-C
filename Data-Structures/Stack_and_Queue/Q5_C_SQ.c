@@ -109,13 +109,12 @@ int main()
 
 void recursiveReverse(Queue *q)
 {
-/* add your code here */
 	int tmp;
-	if(q->ll.head == NULL || q == NULL) return; // 큐가 비어있으면 종료
+	if(q->ll.head == NULL || q == NULL) return; 	// 유효성 검사
 
-	tmp = dequeue(q); // 맨 앞의 원소를 뽑아서 temp에 저장
-	recursiveReverse(q); // 나머지 큐를 재귀적으로 뒤집음
-	enqueue(q, tmp); // 뽑아뒀던 원소를 맨 뒤에 삽입
+	tmp = dequeue(q); 								// 맨 앞의 원소를 뽑아서 temp에 저장
+	recursiveReverse(q); 							// 나머지 큐를 재귀적으로 뒤집음
+	enqueue(q, tmp); 								// 뽑아뒀던 원소를 맨 뒤에 삽입
 }
 
 //////////////////////////////////////////////////////////////////

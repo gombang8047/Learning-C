@@ -111,10 +111,9 @@ int main()
 
 void removeUntil(Stack *s, int value)
 {
-/* add your code here */
-	if(s == NULL || s->ll.head == NULL) return;
+	if(s == NULL || s->ll.head == NULL) return;		// 유효성 검사
 
-	while(!isEmptyStack(s)){
+	while(!isEmptyStack(s)){						// peek을 이용해 찾던 값이 나올때까지 pop
 		if(peek(s) != value){
 			pop(s);
 		}
