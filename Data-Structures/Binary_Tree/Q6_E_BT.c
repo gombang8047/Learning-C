@@ -105,10 +105,9 @@ int main()
 
 void printSmallerValues(BTNode *node, int m)
 {
-	/* add your code here */
-    if(node == NULL) return;
+    if(node == NULL) return;                        // 유효성 검사
 
-    if(node->item < m) printf("%d ", node->item);
+    if(node->item < m) printf("%d ", node->item);   // 전위순회로 노드의 값이 작을 때 출력
     printSmallerValues(node->left, m);
     printSmallerValues(node->right, m);
 }

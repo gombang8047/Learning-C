@@ -105,8 +105,7 @@ int main()
 
 void mirrorTree(BTNode *node)
 {
-	/* add your code here */
-    if(node == NULL) return;
+    if(node == NULL) return;        // 유효성 검사
 
     mirrorTree(node->left);
     mirrorTree(node->right);

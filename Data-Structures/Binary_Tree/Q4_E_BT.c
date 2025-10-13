@@ -104,16 +104,16 @@ int sumOfOddNodes(BTNode *node)
 
 {
     /* add your code here */
-    if(node == NULL) return 0;
+    if(node == NULL) return 0;                  // 유효성 검사
 
-    int left = sumOfOddNodes(node->left);
-    int right = sumOfOddNodes(node->right);
+    int left = sumOfOddNodes(node->left);       // 왼쪽 홀수노드의 총합
+    int right = sumOfOddNodes(node->right);     // 오른쪽 홀수노드의 총합
 
     if(node->item % 2 == 1){
-        return left + right + node->item;
+        return left + right + node->item;       // 현재 노드가 홀수일 때
     }
 
-    return left + right;
+    return left + right;                        // 아닐 때
 }
 
 //////////////////////////////////////////////////////////////////////////////////
