@@ -104,7 +104,7 @@ int main()
 int isStackPairwiseConsecutive(Stack *s)
 {
 	if(s == NULL || s->ll.head == NULL){	// 유효성 검사
-		return -1;
+		return 1;
 	}
 
   	ListNode *cur = s->ll.head;

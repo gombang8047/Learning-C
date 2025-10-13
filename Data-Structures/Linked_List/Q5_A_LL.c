@@ -168,6 +168,8 @@ void frontBackSplitLinkedList(LinkedList *ll, LinkedList *resultFrontList, Linke
 
 	resultFrontList->head = front_head;
 	resultBackList->head = back_head;
+	resultFrontList->size = (ll->size + 1) / 2;
+    resultBackList->size = ll->size - resultFrontList->size;
 
 }
 

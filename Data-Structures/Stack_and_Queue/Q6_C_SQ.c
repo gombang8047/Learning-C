@@ -113,14 +113,24 @@ void removeUntil(Stack *s, int value)
 {
 	if(s == NULL || s->ll.head == NULL) return;		// 유효성 검사
 
+	Stack *tmp = malloc(sizeof(Stack));
+	if (tmp == NULL) return;
+	tmp->ll.head = NULL;
+	tmp->ll.size = 0;
+
 	while(!isEmptyStack(s)){						// peek을 이용해 찾던 값이 나올때까지 pop
 		if(peek(s) != value){
-			pop(s);
+			push((tmp), pop(s));
 		}
 		else{
+			push((tmp), pop(s));
 			break;
 		}
 	}
+
+	s->ll = tmp->ll;
+
+	free(tmp);
 }
 
 //////////////////////////////////////////////////////////////////////////////////

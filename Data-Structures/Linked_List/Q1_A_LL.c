@@ -91,7 +91,6 @@ int main()
 int insertSortedLL(LinkedList *ll, int item)
 {
 	if (ll == NULL){ //리스트 NULL일 때
-		// free(tmp);
 		return -1;
 	}
 
@@ -124,6 +123,7 @@ int insertSortedLL(LinkedList *ll, int item)
 
 	tmp->next = cur->next; //클 때
 	cur->next = tmp;
+	ll->size++;
 	
 	return cnt;
 }
