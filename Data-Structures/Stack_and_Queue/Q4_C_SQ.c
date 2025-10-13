@@ -117,19 +117,19 @@ void reverse(Queue *q)
 	}
 
 	ListNode *cur = q->ll.head;
-	Stack tmp;
-	tmp.ll.head = NULL;
-	tmp.ll.size = 0;
-	tmp.ll.tail = 0;
+	Stack tmp = {0};
+	// tmp.ll.head = NULL;
+	// tmp.ll.size = 0;
+	// tmp.ll.tail = NULL;
 	int item;
 
 	while(!isEmptyQueue(q)){				// 큐에서 하나씩 빼서 스택에 넣고
 		item = dequeue(q);
-		push(&(tmp), item);
+		push(&tmp, item);
 	}
 
-	while(!isEmptyStack(&(tmp))){			// 스택에 있는걸 다시 큐로 보낸다.
-		item = pop(&(tmp));
+	while(!isEmptyStack(&tmp)){			// 스택에 있는걸 다시 큐로 보낸다.
+		item = pop(&tmp);
 		enqueue(q, item);
 	}
 }
