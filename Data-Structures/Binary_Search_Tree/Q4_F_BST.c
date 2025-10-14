@@ -95,25 +95,33 @@ void postOrderIterativeS1(BSTNode *root)
 	Stack inputVal;
 	inputVal.top = NULL;
 
+	//현재 노드 주소값
 	BSTNode *cur = root;
+	//마지막으로 방문했던 노드를 표시하기 위해 주소값 설정
 	BSTNode *lastVisited = NULL;
+	//peek을 하여 이 노드의 오른쪽 자식이 있는지 확인하는 용도
 	BSTNode *peeknode = NULL;
 
 	while(cur != NULL || !isEmpty(&(inputVal))){
 
+		//왼쪽으로 쭉 들어간다.
 		while(cur != NULL){
 			push(&inputVal, cur);
 			cur = cur->left;
 		}
 
+		//스택 top에 들어가 있는 노드를 확인하여 오른쪽 자식이 있는지 확인한다.
 		peeknode = peek(&inputVal);
+		//오른쪽 자식을 방문하지 않았고 오른쪽 자식이 있다면 들어간다.
 		if(lastVisited != peeknode->right && peeknode->right){
 			cur = peeknode->right;
 		}
+		//그게 아니면 현재 노드를 스택에 팝한 노드로 바꿔주면서 마지막에 방문했다고 표시해준다.
 		else{
 			cur = pop(&inputVal);
 			printf("%d ", cur->item);
 			lastVisited = cur;
+			//그리고 출력해준 뒤 다시 들어가지 않기위해 NULL값으로 처리해준다.
 			cur = NULL;
 		}
 	}

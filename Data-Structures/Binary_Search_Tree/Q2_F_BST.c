@@ -91,22 +91,26 @@ int main()
 void inOrderTraversal(BSTNode *root)
 {
 
+	//스택
 	Stack inputVal;
 	inputVal.top = NULL;
 
+	//현재 노드를 루트로 저장
 	BSTNode *cur = root;
 
 	while(cur != NULL || !isEmpty(&(inputVal))){
 
+		//1. 왼쪽으로 쭉 들어간다.
 		while(cur != NULL){
 			push(&inputVal, cur);
 			cur = cur->left;
 		}
 
+		//왼쪽을 팝하면서 현재 노드로 만들어준다.
 		cur = pop(&inputVal);
 		printf("%d ", cur->item);
 
-		
+		//팝하면서 오른쪽 노드가 있다면 오른쪽 노드로 들어가 while문을 다시 돈다.
 		cur = cur->right;
 	}
 }

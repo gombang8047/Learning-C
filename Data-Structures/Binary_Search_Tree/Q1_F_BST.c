@@ -95,19 +95,24 @@ void levelOrderTraversal(BSTNode* root)
 {
 	if(root == NULL) return;
 
+	//큐 생성
 	Queue inputVal;
 	inputVal.head = NULL;
 	inputVal.tail = NULL;
 
+	//임시 노드 생성
 	BSTNode *tmp;
 
 	enqueue(&(inputVal.head), &(inputVal.tail), root);
 
 	while(!isEmpty(inputVal.head)){
+		//큐에서 빼온 노드 임시 노드에 저장
 		tmp = dequeue(&(inputVal.head), &(inputVal.tail));
 
+		//노드의 값을 출력
 		printf("%d ", tmp->item);
 
+		//빼온 노드의 왼쪽 오른쪽 큐에 저장
 		if(tmp->left) enqueue(&(inputVal.head), &(inputVal.tail), tmp->left);
 		if(tmp->right) enqueue(&(inputVal.head), &(inputVal.tail), tmp->right);
 	}

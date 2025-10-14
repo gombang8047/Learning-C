@@ -90,7 +90,8 @@ int main()
 //////////////////////////////////////////////////////////////////////////////////
 
 void preOrderIterative(BSTNode *root)
-{
+{	
+	//root가 NULL이면 리턴
 	if(root == NULL) return;
 
 	Stack inputVal;
@@ -98,9 +99,11 @@ void preOrderIterative(BSTNode *root)
 
 	BSTNode *tmp;
 
+	//스택에 루트노드만 넣는다.
 	push(&inputVal, root);
 
 	while(!isEmpty(&inputVal)){
+		//스택 top에 있는거 빼면서 그 노드의 자식노드를 넣어준다.
 		tmp = pop(&inputVal);
 
 		printf("%d ", tmp->item);

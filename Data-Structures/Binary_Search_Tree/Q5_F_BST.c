@@ -91,6 +91,7 @@ int main()
 
 void postOrderIterativeS2(BSTNode *root)
 {
+	//스택을 두개 만들어 preorder로 한 결과를 스택에 넣어 출력하면 postorder가 되는 방식.
 	if(root == NULL) return;
 
 	Stack inputVal;
@@ -116,29 +117,36 @@ void postOrderIterativeS2(BSTNode *root)
 	}
 }
 
-/* Given a binary search tree and a key, this function
-   deletes the key and returns the new root. Make recursive function. */
 BSTNode* removeNodeFromTree(BSTNode *root, int value)
 {
 	if(root == NULL) return NULL;
 
+	//현재 노드 값이 value보다 클 때
 	if(root->item > value) root->left = removeNodeFromTree(root->left, value);
+	//현재 노드 값이 value보다 작을 때
 	else if(root->item < value) root->right = removeNodeFromTree(root->right, value);
+	//현재 노드 값이 value일 때
 	else{
 		BSTNode *cur;
+		//자식 노드가 둘 다 있을 때 왼쪽 자식중 제일 큰 값을 현재 노드로 바꿔준다.
 		if(root->left && root->right){
 			cur = root->left;
+			//while로 왼쪽 자식 중 제일 큰 값으로 들어간다.
 			while(cur->right){
 				cur = cur->right;
 			}
+			//제일 큰 값을 부모 노드 값으로 바꿔준다.
 			root->item = cur->item;
+			//재귀로 왼쪽 자식 중 바꿔준 노드를 없애주고 다시 연결해준다.
 			root->left = removeNodeFromTree(root->left, cur->item);
 		}
+		//자식 노드 중 왼쪽이 없을 때 오른쪽 자식을 올려준다.
 		else if(root->left == NULL){
 			cur = root->right;
 			free(root);
 			return cur;
 		}
+		//자식 노드 중 오른쪽이 없을 때 왼쪽 자식을 올려준다.
 		else if(root->right == NULL){
 			cur = root->left;
 			free(root);
