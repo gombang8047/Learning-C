@@ -103,15 +103,14 @@ int main()
 
 int hasGreatGrandchild(BTNode *node)
 {
-	/* add your code here */
-    if(node == NULL) return 0;
+    if(node == NULL) return 0;    // 기저 조건
 
     int left_depth = hasGreatGrandchild(node->left);
     int right_depth = hasGreatGrandchild(node->right);
 
-    int max_depth = (left_depth > right_depth) ? left_depth : right_depth;
+    int max_depth = (left_depth > right_depth) ? left_depth : right_depth;  // 왼쪽과 오른쪽중 깊이가 큰 값만 가져오기
 
-    if(max_depth >= 3){
+    if(max_depth >= 3){                 // 최대 깊이가 3이상인 노드만 출력
         printf("%d ", node->item);
     }
 

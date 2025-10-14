@@ -103,11 +103,10 @@ int main()
 
 int smallestValue(BTNode *node)
 {
-	/* add your code here */
-    if(node == NULL) return INT_MAX;
+    if(node == NULL) return INT_MAX;        // 기저조건 : 노드가 NULL일 때 INF값주기
 
-    int a = smallestValue(node->left);
-    int b = smallestValue(node->right);
+    int a = smallestValue(node->left);      // 왼쪽과 오른쪽 중 작은 값을 리턴
+    int b = smallestValue(node->right); 
 
     int min_val = node->item;
     if (a < min_val) min_val = a;

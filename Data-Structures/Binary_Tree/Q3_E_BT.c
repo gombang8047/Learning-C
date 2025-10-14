@@ -101,17 +101,16 @@ int main()
 int countOneChildNodes(BTNode *node)
 
 {
-    /* add your code here */
-    if(node == NULL) return 0;
+    if(node == NULL) return 0;                          // 유효성 검사
 
-    int a = countOneChildNodes(node->left);
-    int b = countOneChildNodes(node->right);
+    int a = countOneChildNodes(node->left);             // 왼쪽 노드의 리턴갯수
+    int b = countOneChildNodes(node->right);            // 오른쪽 노드의 리턴갯수
 
-    if((node->left == NULL && node->right != NULL) || (node->left != NULL && node->right == NULL)){
+    if((node->left == NULL && node->right != NULL) || (node->left != NULL && node->right == NULL)){ // 왼쪽과 오른쪽중 하나만 NULL일 경우 +1
         return a + b + 1;
     }
 
-    return a + b;
+    return a + b;                                       // 아니면 그대로 리턴
 }
 
 ///////////////////////////////////////////////////////////////////////////////////
