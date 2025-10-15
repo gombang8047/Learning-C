@@ -121,11 +121,9 @@ BSTNode* removeNodeFromTree(BSTNode *root, int value)
 {
 	if(root == NULL) return NULL;
 
-	//현재 노드 값이 value보다 클 때
+	//현재 노드 값이 value값과 비교한다.
 	if(root->item > value) root->left = removeNodeFromTree(root->left, value);
-	//현재 노드 값이 value보다 작을 때
 	else if(root->item < value) root->right = removeNodeFromTree(root->right, value);
-	//현재 노드 값이 value일 때
 	else{
 		BSTNode *cur;
 		//자식 노드가 둘 다 있을 때 왼쪽 자식중 제일 큰 값을 현재 노드로 바꿔준다.
@@ -140,15 +138,9 @@ BSTNode* removeNodeFromTree(BSTNode *root, int value)
 			//재귀로 왼쪽 자식 중 바꿔준 노드를 없애주고 다시 연결해준다.
 			root->left = removeNodeFromTree(root->left, cur->item);
 		}
-		//자식 노드 중 왼쪽이 없을 때 오른쪽 자식을 올려준다.
-		else if(root->left == NULL){
-			cur = root->right;
-			free(root);
-			return cur;
-		}
-		//자식 노드 중 오른쪽이 없을 때 왼쪽 자식을 올려준다.
-		else if(root->right == NULL){
-			cur = root->left;
+		else{
+			//자식 노드 중 한쪽이 없을 때
+			cur = (root->left == NULL) ? root->right : root->left;
 			free(root);
 			return cur;
 		}
