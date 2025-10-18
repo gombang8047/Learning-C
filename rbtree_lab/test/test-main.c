@@ -269,7 +269,7 @@ void test_multiple_instances(void) {
 #endif
 
     key_t arr1[] = {10, 5, 8, 34, 67, 23, 156, 24, 2, 12};
-    key_t arr2[] = {4, 8, 10, 5, 3};
+    key_t arr2[] = {4, 8, 11, 5, 3};
 
     for (size_t i = 0; i < sizeof(arr1)/sizeof(arr1[0]); ++i) (void)rbtree_insert(t1, arr1[i]);
     for (size_t i = 0; i < sizeof(arr2)/sizeof(arr2[0]); ++i) (void)rbtree_insert(t2, arr2[i]);

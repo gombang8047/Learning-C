@@ -2,7 +2,7 @@
 CC := gcc
 
 # Flags for this directory
-CFLAGS := -Wall -g
+CFLAGS = -Wall -g -DSENTINEL
 
 # Phony targets
 .PHONY: all clean
