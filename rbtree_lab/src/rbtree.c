@@ -72,13 +72,9 @@ node_t *rbtree_insert(rbtree *t, const key_t key) {
       prev_cur = cur;
       cur = cur->left;
     }
-    else if(cur->key < key){
+    else{
       prev_cur = cur;
       cur = cur->right;
-    }
-    else{
-      free(insert_node);
-      return NULL;
     }
   }
 
@@ -97,64 +93,72 @@ node_t *rbtree_insert(rbtree *t, const key_t key) {
   return t->root;
 }
 
-static void rb_insert_fixup(rbtree *t, node_t *problem_node){
-  node_t *cur_grandparent;
-  node_t *cur_parent;
-  node_t *cur_uncle;
-    
-  while(problem_node->parent->color == RBTREE_RED){
+static void rb_insert_fixup(rbtree *t, node_t *problem_node) {
+    node_t *cur_parent;
+    node_t *cur_grandparent;
+    node_t *cur_uncle;
 
-    cur_grandparent = problem_node->parent->parent;
-    cur_parent = problem_node->parent;
+    while (problem_node->parent->color == RBTREE_RED) {
+        cur_parent = problem_node->parent;
+        cur_grandparent = cur_parent->parent;
 
-    if (cur_parent == cur_grandparent->left) {
-        cur_uncle = cur_grandparent->right;
-    } else {
-        cur_uncle = cur_grandparent->left;
-    }
-
-    if(cur_uncle->color == RBTREE_RED){
-      cur_grandparent->color = RBTREE_RED;
-      cur_parent->color = RBTREE_BLACK;
-      cur_uncle->color = RBTREE_BLACK;
-      problem_node = cur_grandparent;
-    }
-    else{
-      if(cur_parent == cur_grandparent->left){
-        if(problem_node == cur_parent->right){
-          // LR 케이스: 부모 기준 좌회전
-          problem_node = cur_parent;
-          left_rotate(t, problem_node);
-
-          // 회전 후 참조 재설정
-          cur_parent = problem_node->parent;
-          cur_grandparent = cur_parent->parent;
+        // 부모가 할아버지의 왼쪽 자식일 경우
+        if (cur_parent == cur_grandparent->left) {
+            cur_uncle = cur_grandparent->right;
+            
+            // Case 1: 삼촌이 RED
+            if (cur_uncle->color == RBTREE_RED) {
+                cur_parent->color = RBTREE_BLACK;
+                cur_uncle->color = RBTREE_BLACK;
+                cur_grandparent->color = RBTREE_RED;
+                problem_node = cur_grandparent; // 문제를 위로 올리고 계속
+            }
+            // Case 2 & 3: 삼촌이 BLACK
+            else {
+                // Case 2: "꺾인" 모양 (LR) -> "직선" 모양 (LL)으로 변경
+                if (problem_node == cur_parent->right) {
+                    problem_node = cur_parent;
+                    left_rotate(t, problem_node);
+                    // 회전 후, 바뀐 관계를 반영하기 위해 포인터를 재설정
+                    cur_parent = problem_node->parent;
+                    cur_grandparent = cur_parent->parent;
+                }
+                
+                // Case 3: "직선" 모양 (LL) -> 문제 해결
+                cur_parent->color = RBTREE_BLACK;
+                cur_grandparent->color = RBTREE_RED;
+                right_rotate(t, cur_grandparent);
+            }
         }
-
-        // LL 케이스: 색 보정 후 할아버지 기준 우회전
-        cur_parent->color = RBTREE_BLACK;
-        cur_grandparent->color = RBTREE_RED;
-        right_rotate(t, cur_grandparent);
-      }
-      else{
-        if(problem_node == cur_parent->left){
-          // RL 케이스: 부모 기준 우회전
-          problem_node = cur_parent;
-          right_rotate(t, problem_node);
-
-          // 회전 후 참조 재설정
-          cur_parent = problem_node->parent;
-          cur_grandparent = cur_parent->parent;
+        // 부모가 할아버지의 오른쪽 자식일 경우 (위와 완벽히 대칭)
+        else {
+            cur_uncle = cur_grandparent->left;
+            
+            // Case 1
+            if (cur_uncle->color == RBTREE_RED) {
+                cur_parent->color = RBTREE_BLACK;
+                cur_uncle->color = RBTREE_BLACK;
+                cur_grandparent->color = RBTREE_RED;
+                problem_node = cur_grandparent;
+            }
+            // Case 2 & 3
+            else {
+                // Case 2: "꺾인" 모양 (RL) -> "직선" 모양 (RR)으로 변경
+                if (problem_node == cur_parent->left) {
+                    problem_node = cur_parent;
+                    right_rotate(t, problem_node);
+                    cur_parent = problem_node->parent;
+                    cur_grandparent = cur_parent->parent;
+                }
+                
+                // Case 3: "직선" 모양 (RR) -> 문제 해결
+                cur_parent->color = RBTREE_BLACK;
+                cur_grandparent->color = RBTREE_RED;
+                left_rotate(t, cur_grandparent);
+            }
         }
-
-        // RR 케이스: 색 보정 후 할아버지 기준 좌회전
-        cur_parent->color = RBTREE_BLACK;
-        cur_grandparent->color = RBTREE_RED;
-        left_rotate(t, cur_grandparent);
-      }
     }
-  }
-  t->root->color = RBTREE_BLACK;
+    t->root->color = RBTREE_BLACK;
 }
 
 static void left_rotate(rbtree *t, node_t *y){

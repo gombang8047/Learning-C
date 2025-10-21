@@ -1,9 +1,15 @@
-# This Makefile is a convenience wrapper.
-# The main build logic is in the root Makefile (../Makefile).
+.PHONY: test
 
-.PHONY: all test valgrind clean
+CFLAGS=-I ../src -Wall -g -DSENTINEL
 
-# All targets are passed up to the parent Makefile.
-# For example, 'make test' in this directory will run 'make -C .. test'.
-all test valgrind clean:
-	$(MAKE) -C .. $@
+test: test-rbtree
+	./test-rbtree
+	valgrind ./test-rbtree
+
+test-rbtree: test-rbtree.o ../src/rbtree.o
+
+../src/rbtree.o:
+	$(MAKE) -C ../src rbtree.o
+
+clean:
+	rm -f test-rbtree *.o
