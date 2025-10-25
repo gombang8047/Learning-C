@@ -282,34 +282,20 @@ void *mm_realloc(void *ptr, size_t size)
 
 static void insert_free_block(void *bp){
 
-    size_t asize = GET_SIZE(HDRP(bp));
-    int list_index = get_list_index(asize);
-    void *i = segregated_lists[list_index];
-    void *prev_i = NULL;
+    int list_index = get_list_index(GET_SIZE(HDRP(bp)));
 
-    while(i != NULL && asize > GET_SIZE(HDRP(i))){
-        prev_i = i;
-        i = SUCC_FREE(i);
-    }
+    SET_PRED_FREE(bp, NULL);
 
-    if(prev_i == NULL){
-        SET_PRED_FREE(bp, NULL);
-        if(segregated_lists[list_index] == NULL) SET_SUCC_FREE(bp, NULL);
-        else{
-            SET_SUCC_FREE(bp, segregated_lists[list_index]);
-            SET_PRED_FREE(segregated_lists[list_index], bp);
-        }
-        segregated_lists[list_index] = bp;
-    }else if (i == NULL){
+    if(segregated_lists[list_index] != NULL){
+        
+        SET_SUCC_FREE(bp, segregated_lists[list_index]);
+        SET_PRED_FREE(segregated_lists[list_index], bp);
+    } else{
         SET_SUCC_FREE(bp, NULL);
-        SET_SUCC_FREE(prev_i, bp);
-        SET_PRED_FREE(bp, prev_i);
-    }else{
-        SET_SUCC_FREE(bp, i);
-        SET_PRED_FREE(i, bp);
-        SET_SUCC_FREE(prev_i, bp);
-        SET_PRED_FREE(bp, prev_i);
     }
+
+    segregated_lists[list_index] = bp;
+
 }
 
 static void remove_free_block(void *bp){
