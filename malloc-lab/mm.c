@@ -52,14 +52,15 @@
 #define GET_P(p) (*(unsigned long *)(p))
 #define PUT_P(p, val) (*(unsigned long *)(p) = (val))
 
-// 가용리스트 주소 확인 및 설정 (64-bit 호환 - 올바른 코드)
+// 가용리스트 주소 확인 및 설정
 #define PRED_FREE(bp) ((void *)GET_P(bp))
 #define SUCC_FREE(bp) ((void *)GET_P((char *)(bp) + DSIZE))
 #define SET_PRED_FREE(bp, ptr) (PUT_P((bp), (unsigned long)(ptr)))
 #define SET_SUCC_FREE(bp, ptr) (PUT_P(((char *)(bp) + DSIZE), (unsigned long)(ptr)))
 
 static char *heap_listp = 0;
-static char *free_list_head = NULL;
+
+static char *segregated_lists[10];
 
 /*********************************************************
  * NOTE TO STUDENTS: Before you do anything else, please
@@ -84,10 +85,6 @@ team_t team = {
 #define ALIGN(size) (((size) + (ALIGNMENT - 1)) & ~0x7)
 
 #define SIZE_T_SIZE (ALIGN(sizeof(size_t)))
-
-/*
- * mm_init - initialize the malloc package.
- */
 
 static void *extend_heap(size_t words) 
 {
@@ -124,7 +121,9 @@ int mm_init(void)
 
     heap_listp += (2*WSIZE);
 
-    free_list_head = NULL;
+    for(int i=0; i<10; i++){
+        segregated_lists[i] = NULL;
+    }
 
     if(extend_heap(CHUNKSIZE/WSIZE) == NULL) return -1;
 
@@ -133,15 +132,22 @@ int mm_init(void)
 
 static void *find_fit(size_t asize)
 {
-    /* First-fit search */
+
+    int list_index = get_list_index(asize);
+
     void *bp;
 
-    for (bp = free_list_head; bp != NULL; bp = SUCC_FREE(bp)) {
-        if (asize <= GET_SIZE(HDRP(bp))) {
-            return bp;
+    for(int i = list_index; i < 10; i++){
+        if(segregated_lists[i] != NULL){
+            for (bp = segregated_lists[i]; bp != NULL; bp = SUCC_FREE(bp)) {
+                if (asize <= GET_SIZE(HDRP(bp))) {
+                    return bp;
+                }
+            }
         }
     }
-    return NULL; /* No fit */
+
+    return NULL;
 }
 
 static void place(void *bp, size_t asize)
@@ -165,10 +171,6 @@ static void place(void *bp, size_t asize)
     }
 }
 
-/*
- * mm_malloc - Allocate a block by incrementing the brk pointer.
- *     Always allocate a block whose size is a multiple of the alignment.
- */
 void *mm_malloc(size_t size)
 {
     size_t asize;      /* Adjusted block size */
@@ -239,9 +241,6 @@ static void *coalesce(void *bp)
     return bp;
 }
 
-/*
- * mm_free - Freeing a block does nothing.
- */
 void mm_free(void *bp)
 {
     size_t size = GET_SIZE(HDRP(bp));
@@ -251,9 +250,6 @@ void mm_free(void *bp)
     coalesce(bp);
 }
 
-/*
- * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
- */
 void *mm_realloc(void *ptr, size_t size)
 {
     void *newptr;
@@ -284,41 +280,51 @@ void *mm_realloc(void *ptr, size_t size)
     return newptr;
 }
 
-// 1. **가용 리스트에 블록을 '삽입'하는 함수** (예: `insert_free_block(void *bp)`)
-//     - **역할:** LIFO 정책에 따라 **새로운 가용 블록 `bp`를 리스트의 맨 앞에 추가**합니다.
-//     - **동작:**
-//         1. 새 블록(`bp`)의 '다음'을 현재의 `free_list_head`로 설정합니다.
-//         2. 만약 리스트가 비어있지 않았다면, 기존의 첫 번째 블록의 '이전'을 새 블록(`bp`)으로 설정합니다.
-//         3. `free_list_head`를 새 블록(`bp`)으로 업데이트합니다.
 static void insert_free_block(void *bp){
 
-    SET_PRED_FREE(bp, NULL);
+    size_t asize = GET_SIZE(HDRP(bp));
+    int list_index = get_list_index(asize);
+    void *i = segregated_lists[list_index];
+    void *prev_i = NULL;
 
-    if(free_list_head != NULL){
-        SET_SUCC_FREE(bp, free_list_head);
-        SET_PRED_FREE(free_list_head, bp);
-    } else{
-        SET_SUCC_FREE(bp, NULL);
+    while(i != NULL && asize > GET_SIZE(HDRP(i))){
+        prev_i = i;
+        i = SUCC_FREE(i);
     }
 
-    free_list_head = bp;
-
+    if(prev_i == NULL){
+        SET_PRED_FREE(bp, NULL);
+        if(segregated_lists[list_index] == NULL) SET_SUCC_FREE(bp, NULL);
+        else{
+            SET_SUCC_FREE(bp, segregated_lists[list_index]);
+            SET_PRED_FREE(segregated_lists[list_index], bp);
+        }
+        segregated_lists[list_index] = bp;
+    }else if (i == NULL){
+        SET_SUCC_FREE(bp, NULL);
+        SET_SUCC_FREE(prev_i, bp);
+        SET_PRED_FREE(bp, prev_i);
+    }else{
+        SET_SUCC_FREE(bp, i);
+        SET_PRED_FREE(i, bp);
+        SET_SUCC_FREE(prev_i, bp);
+        SET_PRED_FREE(bp, prev_i);
+    }
 }
 
-// 2. **가용 리스트에서 블록을 '제거'하는 함수** (예: `remove_free_block(void *bp)`)
-//     - **역할:** 가용 리스트 중간에 있는 블록 `bp`를 **연결 리스트에서 안전하게 제거**합니다.
-//     - **동작:** `bp`의 이전 블록과 다음 블록을 서로 직접 연결시켜, `bp`가 리스트에서 빠지도록 포인터를 조작합니다. (리스트의 맨 앞이나 맨 뒤일 경우도 고려해야 합니다.)
 static void remove_free_block(void *bp){
+
+    int list_index = get_list_index(GET_SIZE(HDRP(bp)));
 
     void *prev_ptr = PRED_FREE(bp);
     void *succ_ptr = SUCC_FREE(bp);
 
     if(prev_ptr == NULL && succ_ptr == NULL){
-        free_list_head = NULL;
+        segregated_lists[list_index] = NULL;
     }
     else if(prev_ptr == NULL) {
         SET_PRED_FREE(succ_ptr, NULL);
-        free_list_head = succ_ptr;
+        segregated_lists[list_index] = succ_ptr;
     }
     else if(succ_ptr == NULL) {
         SET_SUCC_FREE(prev_ptr, NULL);
@@ -327,4 +333,17 @@ static void remove_free_block(void *bp){
         SET_PRED_FREE(succ_ptr, prev_ptr);
         SET_SUCC_FREE(prev_ptr, succ_ptr);
     }
+}
+
+static int get_list_index(size_t size){
+    if(size <= 24) return 0;
+    else if(size <= 32) return 1;
+    else if(size <= 64) return 2;
+    else if(size <= 128) return 3;
+    else if(size <= 256) return 4;
+    else if(size <= 512) return 5;
+    else if(size <= 1024) return 6;
+    else if(size <= 2048) return 7;
+    else if(size <= 4096) return 8;
+    else return 9;
 }
