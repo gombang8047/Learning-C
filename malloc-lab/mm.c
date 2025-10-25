@@ -48,6 +48,19 @@
 #define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
+/* Read/Write a pointer-sized value at address p */
+#define GET_P(p) (*(unsigned long *)(p))
+#define PUT_P(p, val) (*(unsigned long *)(p) = (val))
+
+// 가용리스트 주소 확인 및 설정 (64-bit 호환 - 올바른 코드)
+#define PRED_FREE(bp) ((void *)GET_P(bp))
+#define SUCC_FREE(bp) ((void *)GET_P((char *)(bp) + DSIZE))
+#define SET_PRED_FREE(bp, ptr) (PUT_P((bp), (unsigned long)(ptr)))
+#define SET_SUCC_FREE(bp, ptr) (PUT_P(((char *)(bp) + DSIZE), (unsigned long)(ptr)))
+
+static char *heap_listp = 0;
+static char *free_list_head = NULL;
+
 /*********************************************************
  * NOTE TO STUDENTS: Before you do anything else, please
  * provide your team information in the following struct.
@@ -75,8 +88,6 @@ team_t team = {
 /*
  * mm_init - initialize the malloc package.
  */
-
-static char *heap_listp = 0;
 
 static void *extend_heap(size_t words) 
 {
@@ -110,7 +121,10 @@ int mm_init(void)
     PUT(heap_listp + (2*WSIZE), PACK(DSIZE, 1, 1));
     // 에필로그 헤더
     PUT(heap_listp + (3*WSIZE), PACK(0, 1, 1));
+
     heap_listp += (2*WSIZE);
+
+    free_list_head = NULL;
 
     if(extend_heap(CHUNKSIZE/WSIZE) == NULL) return -1;
 
@@ -122,8 +136,8 @@ static void *find_fit(size_t asize)
     /* First-fit search */
     void *bp;
 
-    for (bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)) {
-        if (!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))) {
+    for (bp = free_list_head; bp != NULL; bp = SUCC_FREE(bp)) {
+        if (asize <= GET_SIZE(HDRP(bp))) {
             return bp;
         }
     }
@@ -132,13 +146,17 @@ static void *find_fit(size_t asize)
 
 static void place(void *bp, size_t asize)
 {
+
+    remove_free_block(bp);
+
     size_t csize = GET_SIZE(HDRP(bp));
 
-    if ((csize - asize) >= (2 * DSIZE)) {
+    if ((csize - asize) >= (3 * DSIZE)) {
         PUT(HDRP(bp), PACK(asize, 1, GET_PREV_ALLOC(HDRP(bp))));
-        bp = NEXT_BLKP(bp);
-        PUT(HDRP(bp), PACK(csize - asize, 0, 1));
-        PUT(FTRP(bp), PACK(csize - asize, 0, 1));
+        void *next_bp = NEXT_BLKP(bp);
+        PUT(HDRP(next_bp), PACK(csize - asize, 0, 1));
+        PUT(FTRP(next_bp), PACK(csize - asize, 0, 1));
+        insert_free_block(next_bp);
     } 
     else {
         PUT(HDRP(bp), PACK(csize, 1, GET_PREV_ALLOC(HDRP(bp))));
@@ -162,10 +180,10 @@ void *mm_malloc(size_t size)
         return NULL;
 
     /* Adjust block size to include overhead and alignment reqs. */
-    if (size <= WSIZE)
-        asize = 2 * DSIZE;
+    if (size <= DSIZE)
+        asize = 3 * DSIZE;
     else
-        asize = ALIGN(size + WSIZE);
+        asize = ALIGN(size + DSIZE);
 
     /* Search the free list for a fit */
     if ((bp = find_fit(asize)) != NULL) {
@@ -189,12 +207,14 @@ static void *coalesce(void *bp)
     size_t prev_prev_alloc;
 
     if (prev_alloc && !next_alloc) {
+        remove_free_block(NEXT_BLKP(bp));
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
         PUT(HDRP(bp), PACK(size, 0, 1));
         PUT(FTRP(bp), PACK(size, 0, 1));
     }
 
     else if (!prev_alloc && next_alloc) {
+        remove_free_block(PREV_BLKP(bp));
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
         bp = PREV_BLKP(bp);
         prev_prev_alloc = GET_PREV_ALLOC(HDRP(bp));
@@ -203,6 +223,8 @@ static void *coalesce(void *bp)
     }
 
     else if (!prev_alloc && !next_alloc){
+        remove_free_block(NEXT_BLKP(bp));
+        remove_free_block(PREV_BLKP(bp));
         size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(HDRP(NEXT_BLKP(bp)));
         bp = PREV_BLKP(bp);
         prev_prev_alloc = GET_PREV_ALLOC(HDRP(bp));
@@ -210,8 +232,10 @@ static void *coalesce(void *bp)
         PUT(FTRP(bp), PACK(size, 0, prev_prev_alloc));
     }
 
+    insert_free_block(bp);
     CLEAR_PREV_ALLOC(HDRP(NEXT_BLKP(bp)));
     if(!GET_ALLOC(HDRP(NEXT_BLKP(bp)))) CLEAR_PREV_ALLOC(FTRP(NEXT_BLKP(bp)));
+
     return bp;
 }
 
@@ -258,4 +282,49 @@ void *mm_realloc(void *ptr, size_t size)
     memcpy(newptr, ptr, copySize);
     mm_free(ptr);
     return newptr;
+}
+
+// 1. **가용 리스트에 블록을 '삽입'하는 함수** (예: `insert_free_block(void *bp)`)
+//     - **역할:** LIFO 정책에 따라 **새로운 가용 블록 `bp`를 리스트의 맨 앞에 추가**합니다.
+//     - **동작:**
+//         1. 새 블록(`bp`)의 '다음'을 현재의 `free_list_head`로 설정합니다.
+//         2. 만약 리스트가 비어있지 않았다면, 기존의 첫 번째 블록의 '이전'을 새 블록(`bp`)으로 설정합니다.
+//         3. `free_list_head`를 새 블록(`bp`)으로 업데이트합니다.
+static void insert_free_block(void *bp){
+
+    SET_PRED_FREE(bp, NULL);
+
+    if(free_list_head != NULL){
+        SET_SUCC_FREE(bp, free_list_head);
+        SET_PRED_FREE(free_list_head, bp);
+    } else{
+        SET_SUCC_FREE(bp, NULL);
+    }
+
+    free_list_head = bp;
+
+}
+
+// 2. **가용 리스트에서 블록을 '제거'하는 함수** (예: `remove_free_block(void *bp)`)
+//     - **역할:** 가용 리스트 중간에 있는 블록 `bp`를 **연결 리스트에서 안전하게 제거**합니다.
+//     - **동작:** `bp`의 이전 블록과 다음 블록을 서로 직접 연결시켜, `bp`가 리스트에서 빠지도록 포인터를 조작합니다. (리스트의 맨 앞이나 맨 뒤일 경우도 고려해야 합니다.)
+static void remove_free_block(void *bp){
+
+    void *prev_ptr = PRED_FREE(bp);
+    void *succ_ptr = SUCC_FREE(bp);
+
+    if(prev_ptr == NULL && succ_ptr == NULL){
+        free_list_head = NULL;
+    }
+    else if(prev_ptr == NULL) {
+        SET_PRED_FREE(succ_ptr, NULL);
+        free_list_head = succ_ptr;
+    }
+    else if(succ_ptr == NULL) {
+        SET_SUCC_FREE(prev_ptr, NULL);
+    }
+    else{
+        SET_PRED_FREE(succ_ptr, prev_ptr);
+        SET_SUCC_FREE(prev_ptr, succ_ptr);
+    }
 }
