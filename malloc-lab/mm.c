@@ -25,16 +25,16 @@
 
 #define MAX(x, y) ((x) > (y)? (x) : (y))
 
+/* Read and write a word at address p */
+#define GET(p) (*(unsigned int *)(p))
+#define PUT(p, val) (*(unsigned int *)(p) = (val))
+
 /* Pack a size and allocated bit into a word */
-#define PACK(size, alloc, prev_alloc) ((size) | (alloc) | (prev_alloc << u1))
+#define PACK(size, alloc, prev_alloc) ((size) | (alloc) | (prev_alloc << 1))
 #undef GET_PREV_ALLOC
 #define GET_PREV_ALLOC(p) (((GET(p)) >> 1) & 0x1)
 #define SET_PREV_ALLOC(p) (PUT((p), GET(p) | 0x2))
 #define CLEAR_PREV_ALLOC(p) (PUT((p), GET(p) & ~0x2))
-
-/* Read and write a word at address p */
-#define GET(p) (*(unsigned int *)(p))
-#define PUT(p, val) (*(unsigned int *)(p) = (val))
 
 /* Read the size and allocated fields from address p */
 #define GET_SIZE(p) (GET(p) & ~0x7)
