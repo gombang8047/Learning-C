@@ -26,7 +26,7 @@
 #define MAX(x, y) ((x) > (y)? (x) : (y))
 
 /* Pack a size and allocated bit into a word */
-#define PACK(size, alloc, prev_alloc) ((size) | (alloc) | (prev_alloc << 1))
+#define PACK(size, alloc, prev_alloc) ((size) | (alloc) | (prev_alloc << u1))
 #undef GET_PREV_ALLOC
 #define GET_PREV_ALLOC(p) (((GET(p)) >> 1) & 0x1)
 #define SET_PREV_ALLOC(p) (PUT((p), GET(p) | 0x2))
@@ -60,7 +60,8 @@
 
 static char *heap_listp = 0;
 
-static char *segregated_lists[10];
+#define SEG_LIST_SIZE 20
+static char *segregated_lists[SEG_LIST_SIZE];
 
 /*********************************************************
  * NOTE TO STUDENTS: Before you do anything else, please
@@ -90,9 +91,18 @@ static void *extend_heap(size_t words)
 {
     char *bp;
     size_t size;
+    size_t prev_size;
 
     /* Allocate an even number of words to maintain alignment */
     size = (words % 2) ? (words+1) * WSIZE : words * WSIZE;
+
+    char *epilogue_header = (char *)mem_heap_hi() - (WSIZE - 1);
+
+    if(!GET_PREV_ALLOC(epilogue_header)) {
+        prev_size = GET_SIZE(epilogue_header - WSIZE);
+        size = size - prev_size;
+    }
+
     if ((long)(bp = mem_sbrk(size)) == -1)
         return NULL;
 
@@ -121,7 +131,7 @@ int mm_init(void)
 
     heap_listp += (2*WSIZE);
 
-    for(int i=0; i<10; i++){
+    for(int i=0; i<SEG_LIST_SIZE; i++){
         segregated_lists[i] = NULL;
     }
 
@@ -137,7 +147,7 @@ static void *find_fit(size_t asize)
 
     void *bp;
 
-    for(int i = list_index; i < 10; i++){
+    for(int i = list_index; i < SEG_LIST_SIZE; i++){
         if(segregated_lists[i] != NULL){
             for (bp = segregated_lists[i]; bp != NULL; bp = SUCC_FREE(bp)) {
                 if (asize <= GET_SIZE(HDRP(bp))) {
@@ -207,6 +217,7 @@ static void *coalesce(void *bp)
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t size = GET_SIZE(HDRP(bp));
     size_t prev_prev_alloc;
+
 
     if (prev_alloc && !next_alloc) {
         remove_free_block(NEXT_BLKP(bp));
@@ -345,5 +356,15 @@ static int get_list_index(size_t size){
     else if(size <= 1024) return 6;
     else if(size <= 2048) return 7;
     else if(size <= 4096) return 8;
-    else return 9;
+    else if(size <= 8192) return 9;
+    else if(size <= 16384) return 10;
+    else if(size <= 32768) return 11;
+    else if(size <= 65536) return 12;
+    else if(size <= 131072) return 13;
+    else if(size <= 262144) return 14;
+    else if(size <= 524288) return 15;
+    else if(size <= 580000) return 16;
+    else if(size <= 600000) return 17;
+    else if(size <= 1048576) return 18;
+    else return 19;
 }
