@@ -12,6 +12,7 @@ static void place(void *bp, size_t asize);
 static void insert_free_block(void *bp);
 static void remove_free_block(void *bp);
 static int get_list_index(size_t size);
+static void move_memory(void *src, void *dest, size_t size);
 
 /* 
  * Students work in teams of one or two.  Teams enter their team name, 
