@@ -226,17 +226,6 @@ void *mm_malloc(size_t size)
         size = 128;
     }
 
-    if ((size == 512) && (flag == 1))
-    {
-        size = 640;
-        flag = 0;
-    }
-    if ((size == 4092) && (flag == 1))
-    {
-        size = 4097;
-        flag = 0;
-    }
-
     /* Adjust block size to include overhead and alignment reqs. */
     if (size <= DSIZE)
         asize = 2 * DSIZE;
@@ -309,16 +298,11 @@ void mm_free(void *bp)
 
 void *mm_realloc(void *ptr, size_t size)
 {
-    size_t heap_size = mem_heapsize();
-    // ptr이 NULL이면 mm_malloc(size)와 동일하게 동작합니다.
     if (ptr == NULL) return mm_malloc(size);
-    
-    // size가 0이면 mm_free(ptr)와 동일하게 동작합니다.
     if (size == 0) {
         mm_free(ptr);
         return NULL;
     }
-
 
     void *newptr;
     size_t cur_size = GET_SIZE(HDRP(ptr));
@@ -348,31 +332,6 @@ void *mm_realloc(void *ptr, size_t size)
         }
         return newptr;
     
-    // 이전 다음 블록이 가용 블럭이고 합쳤을 때 크기가 클 때
-    }else if(!GET_PREV_ALLOC(HDRP(ptr)) && !GET_ALLOC(HDRP(next_ptr)) && cur_size+GET_SIZE(HDRP(prev_ptr))+GET_SIZE(HDRP(next_ptr)) >= asize){
-
-        newptr = prev_ptr;
-        sum_size = cur_size+GET_SIZE(HDRP(prev_ptr))+GET_SIZE(HDRP(next_ptr));
-        remove_free_block(prev_ptr);
-        remove_free_block(next_ptr);
-
-        memmove(newptr, ptr, cur_size - DSIZE);
-
-        PUT(HDRP(newptr), PACK(sum_size, 1, GET_PREV_ALLOC(HDRP(newptr))));
-        SET_PREV_ALLOC(HDRP(NEXT_BLKP(newptr)));
-
-        // if(sum_size - asize >= 2*DSIZE){
-        //     PUT(HDRP(newptr), PACK(asize, 1, GET_PREV_ALLOC(HDRP(newptr))));
-        //     next_ptr = (char *)newptr + asize;
-        //     PUT(HDRP(next_ptr), PACK(sum_size-asize, 0, 1));
-        //     PUT(FTRP(next_ptr), PACK(sum_size-asize, 0, 1));
-        //     coalesce(next_ptr);
-        // }else{
-        //     PUT(HDRP(newptr), PACK(sum_size, 1, GET_PREV_ALLOC(HDRP(newptr))));
-        //     SET_PREV_ALLOC(HDRP(NEXT_BLKP(newptr)));
-        // }
-        return newptr;
-
     // 다음 블록이 가용 블록이고 합쳤을 때 크기가 클 때
     }else if(!GET_ALLOC(HDRP(next_ptr)) && (cur_size+GET_SIZE(HDRP(next_ptr)) >= asize)){
 
@@ -380,44 +339,16 @@ void *mm_realloc(void *ptr, size_t size)
         sum_size = cur_size+GET_SIZE(HDRP(next_ptr));
         remove_free_block(next_ptr);
 
-        PUT(HDRP(newptr), PACK(sum_size, 1, GET_PREV_ALLOC(HDRP(newptr))));
-        SET_PREV_ALLOC(HDRP(NEXT_BLKP(newptr)));
-
-        // if(sum_size - asize >= 2*DSIZE){
-        //     PUT(HDRP(newptr), PACK(asize, 1, GET_PREV_ALLOC(HDRP(newptr))));
-        //     next_ptr = (char *)ptr + asize;
-        //     PUT(HDRP(next_ptr), PACK(sum_size-asize, 0, 1));
-        //     PUT(FTRP(next_ptr), PACK(sum_size-asize, 0, 1));
-        //     coalesce(next_ptr);
-        // }else{
-        //     PUT(HDRP(newptr), PACK(sum_size, 1, GET_PREV_ALLOC(HDRP(newptr))));
-        //     SET_PREV_ALLOC(HDRP(NEXT_BLKP(newptr)));
-        // }
-        return newptr;
-
-
-    // 이전 블록이 가용 블록이고 합쳤을 때 크기가 클 때
-    }else if(!GET_PREV_ALLOC(HDRP(ptr)) && (cur_size+GET_SIZE(HDRP(prev_ptr)) >= asize)){
-
-        newptr = prev_ptr;
-        sum_size = cur_size+GET_SIZE(HDRP(prev_ptr));
-        remove_free_block(prev_ptr);
-
-        memmove(newptr, ptr, cur_size - DSIZE);
-
-        PUT(HDRP(newptr), PACK(sum_size, 1, GET_PREV_ALLOC(HDRP(newptr))));
-        SET_PREV_ALLOC(HDRP(NEXT_BLKP(newptr)));
-
-        // if(sum_size - asize >= 2*DSIZE){
-        //     PUT(HDRP(newptr), PACK(asize, 1, GET_PREV_ALLOC(HDRP(newptr))));
-        //     next_ptr = (char *)newptr + asize;
-        //     PUT(HDRP(next_ptr), PACK(sum_size-asize, 0, 1));
-        //     PUT(FTRP(next_ptr), PACK(sum_size-asize, 0, 1));
-        //     coalesce(next_ptr);
-        // }else{
-        //     PUT(HDRP(newptr), PACK(sum_size, 1, GET_PREV_ALLOC(HDRP(newptr))));
-        //     SET_PREV_ALLOC(HDRP(NEXT_BLKP(newptr)));
-        // }
+        if(sum_size - asize >= 2*DSIZE){
+            PUT(HDRP(newptr), PACK(asize, 1, GET_PREV_ALLOC(HDRP(newptr))));
+            next_ptr = (char *)ptr + asize;
+            PUT(HDRP(next_ptr), PACK(sum_size-asize, 0, 1));
+            PUT(FTRP(next_ptr), PACK(sum_size-asize, 0, 1));
+            coalesce(next_ptr);
+        }else{
+            PUT(HDRP(newptr), PACK(sum_size, 1, GET_PREV_ALLOC(HDRP(newptr))));
+            SET_PREV_ALLOC(HDRP(NEXT_BLKP(newptr)));
+        }
         return newptr;
 
     // ptr이 마지막 블록일 때
