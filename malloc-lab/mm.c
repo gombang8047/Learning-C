@@ -48,15 +48,40 @@
 #define NEXT_BLKP(bp) ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE)))
 #define PREV_BLKP(bp) ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
-/* Read/Write a pointer-sized value at address p */
-#define GET_P(p) (*(unsigned long *)(p))
-#define PUT_P(p, val) (*(unsigned long *)(p) = (val))
+/* ------------------ 4바이트 상대 주소 매크로 (변경됨) ------------------ */
 
-// 가용리스트 주소 확인 및 설정 (64-bit 호환 - 올바른 코드)
-#define PRED_FREE(bp) ((void *)GET_P(bp))
-#define SUCC_FREE(bp) ((void *)GET_P((char *)(bp) + DSIZE))
-#define SET_PRED_FREE(bp, ptr) (PUT_P((bp), (unsigned long)(ptr)))
-#define SET_SUCC_FREE(bp, ptr) (PUT_P(((char *)(bp) + DSIZE), (unsigned long)(ptr)))
+// 힙의 시작 주소를 가리킬 전역 변수
+static char *heap_start = 0;
+
+/* 4바이트 오프셋을 읽고 쓰기 */
+#define GET_OFFSET(p) (*(unsigned int *)(p))
+#define PUT_OFFSET(p, offset) (*(unsigned int *)(p) = (offset))
+
+/* 포인터를 오프셋으로, 오프셋을 포인터로 변환 */
+#define P_TO_OFFSET(p) ((unsigned int)((char *)(p) - heap_start))
+#define OFFSET_TO_P(offset) ((void *)(heap_start + (offset)))
+
+/* * 수정된 가용 리스트 접근 매크로
+ * PRED는 bp 위치에, SUCC는 4바이트(WSIZE) 뒤에 저장됩니다.
+ * 오프셋 값이 0이면 NULL 포인터로 취급합니다.
+ */
+#define PRED_FREE(bp) (GET_OFFSET(bp) == 0 ? NULL : OFFSET_TO_P(GET_OFFSET(bp)))
+#define SUCC_FREE(bp) (GET_OFFSET((char *)(bp) + WSIZE) == 0 ? NULL : OFFSET_TO_P(GET_OFFSET((char *)(bp) + WSIZE)))
+
+#define SET_PRED_FREE(bp, ptr) (PUT_OFFSET((bp), (ptr) == NULL ? 0 : P_TO_OFFSET(ptr)))
+#define SET_SUCC_FREE(bp, ptr) (PUT_OFFSET(((char *)(bp) + WSIZE), (ptr) == NULL ? 0 : P_TO_OFFSET(ptr)))
+
+/* -------------------------------------------------------------------- */
+
+// /* Read/Write a pointer-sized value at address p */
+// #define GET_P(p) (*(unsigned long *)(p))
+// #define PUT_P(p, val) (*(unsigned long *)(p) = (val))
+
+// // 가용리스트 주소 확인 및 설정 (64-bit 호환 - 올바른 코드)
+// #define PRED_FREE(bp) ((void *)GET_P(bp))
+// #define SUCC_FREE(bp) ((void *)GET_P((char *)(bp) + DSIZE))
+// #define SET_PRED_FREE(bp, ptr) (PUT_P((bp), (unsigned long)(ptr)))
+// #define SET_SUCC_FREE(bp, ptr) (PUT_P(((char *)(bp) + DSIZE), (unsigned long)(ptr)))
 
 static char *heap_listp = 0;
 static char *free_list_head = NULL;
@@ -124,6 +149,8 @@ int mm_init(void)
 
     heap_listp += (2*WSIZE);
 
+    heap_start = (char*)heap_listp;
+
     free_list_head = NULL;
 
     if(extend_heap(CHUNKSIZE/WSIZE) == NULL) return -1;
@@ -151,7 +178,7 @@ static void place(void *bp, size_t asize)
 
     size_t csize = GET_SIZE(HDRP(bp));
 
-    if ((csize - asize) >= (3 * DSIZE)) {
+    if ((csize - asize) >= (2 * DSIZE)) {
         PUT(HDRP(bp), PACK(asize, 1, GET_PREV_ALLOC(HDRP(bp))));
         void *next_bp = NEXT_BLKP(bp);
         PUT(HDRP(next_bp), PACK(csize - asize, 0, 1));
@@ -181,7 +208,7 @@ void *mm_malloc(size_t size)
 
     /* Adjust block size to include overhead and alignment reqs. */
     if (size <= DSIZE)
-        asize = 3 * DSIZE;
+        asize = 2 * DSIZE;
     else
         asize = ALIGN(size + DSIZE);
 
