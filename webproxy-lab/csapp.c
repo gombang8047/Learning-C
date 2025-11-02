@@ -42,7 +42,7 @@ void posix_error(int code, char *msg) /* Posix-style error */
     exit(0);
 }
 
-void gai_error(int code, char *msg) /* Getaddrinfo-style error */
+void gai_error_csapp(int code, char *msg) /* Getaddrinfo-style error */
 {
     fprintf(stderr, "%s: %s\n", msg, gai_strerror(code));
     exit(0);
@@ -605,7 +605,7 @@ void Getaddrinfo(const char *node, const char *service,
     int rc;
 
     if ((rc = getaddrinfo(node, service, hints, res)) != 0) 
-        gai_error(rc, "Getaddrinfo error");
+        gai_error_csapp(rc, "Getaddrinfo error");
 }
 /* $end getaddrinfo */
 
@@ -616,7 +616,7 @@ void Getnameinfo(const struct sockaddr *sa, socklen_t salen, char *host,
 
     if ((rc = getnameinfo(sa, salen, host, hostlen, serv, 
                           servlen, flags)) != 0) 
-        gai_error(rc, "Getnameinfo error");
+        gai_error_csapp(rc, "Getnameinfo error");
 }
 
 void Freeaddrinfo(struct addrinfo *res)
@@ -946,31 +946,39 @@ ssize_t Rio_readlineb(rio_t *rp, void *usrbuf, size_t maxlen)
  *       -2 for getaddrinfo error
  *       -1 with errno set for other errors.
  */
-/* $begin open_clientfd */
+
+
 int open_clientfd(char *hostname, char *port) {
     int clientfd, rc;
     struct addrinfo hints, *listp, *p;
 
-    /* Get a list of potential server addresses */
+    // 주소 정보 가져오기 956 ~ 968라인
+    // memset은 어떤 종류의 주소를 가져올지 요청서의 양식을 비움
     memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_socktype = SOCK_STREAM;  /* Open a connection */
-    hints.ai_flags = AI_NUMERICSERV;  /* ... using a numeric port arg. */
-    hints.ai_flags |= AI_ADDRCONFIG;  /* Recommended for connections */
+    // TCP를 선택하는 것 SOCK_STREAM, UDP를 선택할려면 SOCK_DGRAM을 선택
+    hints.ai_socktype = SOCK_STREAM;
+    // 포트 번호를 받겠다.
+    hints.ai_flags = AI_NUMERICSERV;
+    // 내 컴퓨터가 IPv4면 IPv4, IPv6면 IPv6를 준다.
+    hints.ai_flags |= AI_ADDRCONFIG; 
+    // getaddrinfo로 원하는 형태의 주소 연결 리스트를 가져온다.
     if ((rc = getaddrinfo(hostname, port, &hints, &listp)) != 0) {
         fprintf(stderr, "getaddrinfo failed (%s:%s): %s\n", hostname, port, gai_strerror(rc));
         return -2;
     }
-  
-    /* Walk the list for one that we can successfully connect to */
+    
+    // getaddrinfo가 찾은 주소가 담겨있는 리스트를 순회한다 970 ~ .
     for (p = listp; p; p = p->ai_next) {
-        /* Create a socket descriptor */
-        if ((clientfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) < 0) 
-            continue; /* Socket failed, try the next */
+        // 소켓을 생성하고 clientfd의 소켓에 그 정보를 넣는다.
+        if ((clientfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) < 0)
+            // 만약 소켓이 망가졌을 때 다음 주소를 가져와 시도한다.
+            continue;
 
-        /* Connect to the server */
+        // 실제로 소켓으로 서버와 연결을 시도한다.
         if (connect(clientfd, p->ai_addr, p->ai_addrlen) != -1) 
-            break; /* Success */
-        if (close(clientfd) < 0) { /* Connect failed, try another */  //line:netp:openclientfd:closefd
+            // 성공하면 break
+            break;
+        if (close(clientfd) < 0) {
             fprintf(stderr, "open_clientfd: close failed: %s\n", strerror(errno));
             return -1;
         } 
