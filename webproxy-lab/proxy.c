@@ -1,16 +1,14 @@
 #include <stdio.h>
 #include "csapp.h"
 
-/* Recommended max cache and object sizes */
 #define MAX_CACHE_SIZE 1049000
 #define MAX_OBJECT_SIZE 102400
 
-/* You won't lose style points for including this long line in your code */
 static const char *user_agent_hdr =
     "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:10.0.3) Gecko/20120305 "
     "Firefox/10.0.3\r\n";
 
-void doit(int fd);
+void *doit(void *vargp);
 void read_requesthdrs(rio_t *rp);
 void parse_uri(char *uri, char *host, char *port, char *path);
 void serve_static(int fd, char *filename, int filesize);
@@ -24,8 +22,7 @@ int main(int argc, char **argv)
   char hostname[MAXLINE], port[MAXLINE];
   socklen_t clientlen;
   struct sockaddr_storage clientaddr;
-
-  /* Check command line args */ 
+ 
   if (argc != 2)
   {
     fprintf(stderr, "usage: %s <port>\n", argv[0]);
@@ -38,20 +35,20 @@ int main(int argc, char **argv)
   while (1)
   {
     clientlen = sizeof(clientaddr);
-    connfd = Accept(listenfd, (SA *)&clientaddr,
-                    &clientlen); // line:netp:tiny:accept
+    connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen); 
     Getnameinfo((SA *)&clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE,
                 0);
     printf("Accepted connection from (%s, %s)\n", hostname, port);
-    doit(connfd);  // line:netp:tiny:doit
-    Close(connfd); // line:netp:tiny:close
+
+    pthread_t tid;
+    Pthread_create(&tid, NULL, doit, (void *)connfd);
+
+    // doit(connfd);
+    // Close(connfd);
   }
 }
 
-/*
- * doit - handle one HTTP request/response transaction
- */
-void doit(int fd)
+void *doit(void *vargp)
 {
 
   rio_t rio_client, rio_server;
@@ -62,6 +59,10 @@ void doit(int fd)
   int remaining = MAXBUF;
   int n, serverfd;
 
+  int fd = (int)vargp;
+
+  Pthread_detach(Pthread_self());
+
   Rio_readinitb(&rio_client, fd);
   if(!Rio_readlineb(&rio_client, buf, MAXLINE)) return;
   printf("Request line from browser:\n");
@@ -70,7 +71,7 @@ void doit(int fd)
 
   if(strcasecmp(method, "GET")){
     clienterror(fd, method, "501", "NOT implemented", "Tiny does not implement this method");
-    return;
+    return NULL;
   }
 
   read_requesthdrs(&rio_client);
@@ -88,7 +89,11 @@ void doit(int fd)
   n = snprintf(p, remaining, "Proxy-Connection: close\r\n\r\n");
   p += n; remaining -= n;
 
-  serverfd = Open_clientfd(host, port);
+  serverfd = open_clientfd(host, port);
+  if(serverfd < 0){
+    clienterror(fd, host, "502", "Bad Gateway", "Tiny proxy couldn't connect to the server");
+    return NULL;
+  }
 
   Rio_writen(serverfd, request_buf, strlen(request_buf));
   Rio_readinitb(&rio_server, serverfd);
@@ -99,11 +104,11 @@ void doit(int fd)
 
   Close(serverfd);
 
+  Close(fd);
+
+  return NULL;
 }
 
-/*
- * read_requesthdrs - read HTTP request headers
- */
 void read_requesthdrs(rio_t *rp)
 {
   char buf[MAXLINE];
@@ -118,7 +123,6 @@ void read_requesthdrs(rio_t *rp)
   return;
 }
 
-//http://www.google.com/
 void parse_uri(char *uri, char *host, char *port, char *path){
 
   char *ptr_start = strstr(uri, "//");
@@ -142,16 +146,11 @@ void parse_uri(char *uri, char *host, char *port, char *path){
 
 }
 
-
-/*
- * clienterror - returns an error message to the client
- */
 void clienterror(int fd, char *cause, char *errnum,
                  char *shortmsg, char *longmsg)
 {
   char buf[MAXLINE], body[MAXBUF];
 
-  /* Build the HTTP response body */
   sprintf(body, "<html><title>Tiny Error</title>");
   sprintf(body, "%s<body bgcolor="
                 "ffffff"
@@ -161,7 +160,6 @@ void clienterror(int fd, char *cause, char *errnum,
   sprintf(body, "%s<p>%s: %s\r\n", body, longmsg, cause);
   sprintf(body, "%s<hr><em>The Tiny Web server</em>\r\n", body);
 
-  /* Print the HTTP response */
   sprintf(buf, "HTTP/1.0 %s %s\r\n", errnum, shortmsg);
   Rio_writen(fd, buf, strlen(buf));
   sprintf(buf, "Content-type: text/html\r\n");
