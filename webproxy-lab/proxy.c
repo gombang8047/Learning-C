@@ -16,6 +16,18 @@ void get_filetype(char *filename, char *filetype);
 void serve_dynamic(int fd, char *filename, char *cgiargs);
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg);
 
+//캐시하기 위한 구조체
+struct cache_box{
+  char uri[MAXLINE];
+  char *data;
+  int size;
+  int timestamp;
+};
+struct cache_box cache[10];
+
+//쓰기를 할 때 읽기를 락하기 위한 장치
+pthread_rwlock_t cache_lock;
+
 int main(int argc, char **argv)
 {
   int listenfd, connfd;
@@ -31,6 +43,9 @@ int main(int argc, char **argv)
 
   Signal(SIGPIPE, SIG_IGN);
 
+  //초기화
+  pthread_rwlock_init(&cache_lock, NULL);
+
   listenfd = Open_listenfd(argv[1]);
   while (1)
   {
@@ -43,8 +58,6 @@ int main(int argc, char **argv)
     pthread_t tid;
     Pthread_create(&tid, NULL, doit, (void *)connfd);
 
-    // doit(connfd);
-    // Close(connfd);
   }
 }
 
@@ -57,7 +70,7 @@ void *doit(void *vargp)
   char request_buf[MAXBUF];
   char *p = request_buf;
   int remaining = MAXBUF;
-  int n, serverfd;
+  int n, serverfd, index;
 
   int fd = (int)vargp;
 
@@ -77,6 +90,17 @@ void *doit(void *vargp)
   read_requesthdrs(&rio_client);
 
   parse_uri(uri, host, port, path);
+
+  pthread_rwlock_rdlock(&cache_lock);
+
+  if((index = find_in_cache(uri)) >= 0){
+    //cache Hit
+    Rio_writen(fd, cache[index].data, cache[index].size);
+    Close(fd);
+    return NULL;
+  }
+  //cache Miss
+  pthread_rwlock_unlock(&cache_lock);
 
   n = snprintf(p, remaining, "GET %s HTTP/1.0\r\n", path);
   p += n; remaining -= n;
@@ -146,8 +170,7 @@ void parse_uri(char *uri, char *host, char *port, char *path){
 
 }
 
-void clienterror(int fd, char *cause, char *errnum,
-                 char *shortmsg, char *longmsg)
+void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg)
 {
   char buf[MAXLINE], body[MAXBUF];
 
@@ -167,4 +190,18 @@ void clienterror(int fd, char *cause, char *errnum,
   sprintf(buf, "Content-length: %d\r\n\r\n", (int)strlen(body));
   Rio_writen(fd, buf, strlen(buf));
   Rio_writen(fd, body, strlen(body));
+}
+
+int find_in_cache(char *uri){
+
+  for(int i=0; i<10; i++){
+    if(strcmp(cache[i].uri, uri) == 0){
+
+      cache[i].timestamp = user_agent_hdr;
+
+      return i;
+    }
+  }
+
+  return -1;
 }
