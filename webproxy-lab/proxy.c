@@ -15,6 +15,8 @@ void serve_static(int fd, char *filename, int filesize);
 void get_filetype(char *filename, char *filetype);
 void serve_dynamic(int fd, char *filename, char *cgiargs);
 void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg);
+int find_in_cache(char *uri);
+void write_to_cache(char *data, int totalsize, char *uri);
 
 //캐시하기 위한 구조체
 struct cache_box{
@@ -22,8 +24,10 @@ struct cache_box{
   char *data;
   int size;
   int timestamp;
+  int valid;
 };
 struct cache_box cache[10];
+static int global_timestamp = 0;
 
 //쓰기를 할 때 읽기를 락하기 위한 장치
 pthread_rwlock_t cache_lock;
@@ -45,6 +49,14 @@ int main(int argc, char **argv)
 
   //초기화
   pthread_rwlock_init(&cache_lock, NULL);
+  for (int i = 0; i < 10; i++) {
+    cache[i].valid = 0;
+    cache[i].size = 0;
+    cache[i].timestamp = 0;
+    cache[i].uri[0] = '\0';
+    cache[i].data = NULL; // Malloc 사용 전 NULL로 초기화
+  }
+  global_timestamp = 0;
 
   listenfd = Open_listenfd(argv[1]);
   while (1)
@@ -56,31 +68,34 @@ int main(int argc, char **argv)
     printf("Accepted connection from (%s, %s)\n", hostname, port);
 
     pthread_t tid;
-    Pthread_create(&tid, NULL, doit, (void *)connfd);
+    int *fdp = Malloc(sizeof(int));
+    *fdp = connfd;
+    Pthread_create(&tid, NULL, doit, fdp);
 
   }
 }
 
 void *doit(void *vargp)
 {
-
   rio_t rio_client, rio_server;
-  char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
+  char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE], raw_uri[MAXLINE];
   char host[MAXLINE], port[MAXLINE], path[MAXLINE];
   char request_buf[MAXBUF];
   char *p = request_buf;
   int remaining = MAXBUF;
   int n, serverfd, index;
 
-  int fd = (int)vargp;
+  int fd = *(int *)vargp;
+  Free(vargp);
 
   Pthread_detach(Pthread_self());
 
   Rio_readinitb(&rio_client, fd);
-  if(!Rio_readlineb(&rio_client, buf, MAXLINE)) return;
+  if(!Rio_readlineb(&rio_client, buf, MAXLINE)) return NULL;
   printf("Request line from browser:\n");
   printf("%s", buf);
   sscanf(buf, "%s %s %s", method, uri, version);
+  strcpy(raw_uri, uri);
 
   if(strcasecmp(method, "GET")){
     clienterror(fd, method, "501", "NOT implemented", "Tiny does not implement this method");
@@ -92,16 +107,19 @@ void *doit(void *vargp)
   parse_uri(uri, host, port, path);
 
   pthread_rwlock_rdlock(&cache_lock);
+  index = find_in_cache(raw_uri);
+  pthread_rwlock_unlock(&cache_lock);
 
-  if((index = find_in_cache(uri)) >= 0){
+  if(index >= 0){
     //cache Hit
+    pthread_rwlock_wrlock(&cache_lock);
+    cache[index].timestamp = global_timestamp++;
     Rio_writen(fd, cache[index].data, cache[index].size);
+    pthread_rwlock_unlock(&cache_lock);
     Close(fd);
     return NULL;
   }
   //cache Miss
-  pthread_rwlock_unlock(&cache_lock);
-
   n = snprintf(p, remaining, "GET %s HTTP/1.0\r\n", path);
   p += n; remaining -= n;
   n = snprintf(p, remaining, "Host: %s\r\n", host);
@@ -122,14 +140,64 @@ void *doit(void *vargp)
   Rio_writen(serverfd, request_buf, strlen(request_buf));
   Rio_readinitb(&rio_server, serverfd);
 
+  char temp_cache_buf[MAX_OBJECT_SIZE];
+  int totalsize = 0;
+  int can_cache_flag = 0;
+  int contentlength = -1;
+  char line_buf[MAXLINE];
+  char *line_p;
+
+  if (!Rio_readlineb(&rio_server, line_buf, MAXLINE)) return NULL;
+  Rio_writen(fd, line_buf, strlen(line_buf));
+
+  if (totalsize + strlen(line_buf) <= MAX_OBJECT_SIZE) {
+    memcpy(temp_cache_buf + totalsize, line_buf, strlen(line_buf));
+    totalsize += strlen(line_buf);
+  }
+
+  do{
+    if (!Rio_readlineb(&rio_server, line_buf, MAXLINE)) break;
+
+    if (!strncasecmp(line_buf, "Content-Length:", 15)) {
+      char *v = line_buf + 15;
+      while (*v == ' ' || *v == '\t') v++;
+      contentlength = atoi(v); 
+    }
+    Rio_writen(fd, line_buf, strlen(line_buf));
+
+    if (totalsize + strlen(line_buf) <= MAX_OBJECT_SIZE) {
+        memcpy(temp_cache_buf + totalsize, line_buf, strlen(line_buf));
+        totalsize += strlen(line_buf);
+    }
+  }while(strcmp(line_buf, "\r\n"));
+
+  //캐싱 가능한지 플래그 설정
+  if(contentlength > 0 && contentlength <= MAX_OBJECT_SIZE){
+    can_cache_flag = 1;
+  }
+
   while((n = Rio_readn(serverfd, buf, MAXLINE)) > 0){
     Rio_writen(fd, buf, n);
+    
+    if(can_cache_flag == 1){
+      if(totalsize + n <= MAX_OBJECT_SIZE){
+        memcpy(temp_cache_buf + totalsize, buf, n);
+        totalsize += n;
+      }else {
+            // MAX_OBJECT_SIZE 초과 시 플래그 비활성화 (선택적)
+            can_cache_flag = 0;
+      }
+    }
+  }
+
+  if(can_cache_flag == 1){
+    pthread_rwlock_wrlock(&cache_lock);
+    write_to_cache(temp_cache_buf, totalsize, raw_uri);
+    pthread_rwlock_unlock(&cache_lock);
   }
 
   Close(serverfd);
-
   Close(fd);
-
   return NULL;
 }
 
@@ -195,13 +263,45 @@ void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longms
 int find_in_cache(char *uri){
 
   for(int i=0; i<10; i++){
-    if(strcmp(cache[i].uri, uri) == 0){
-
-      cache[i].timestamp = user_agent_hdr;
-
+    if(cache[i].valid == 1 && strcmp(cache[i].uri, uri) == 0){
       return i;
     }
   }
-
   return -1;
+}
+
+void write_to_cache(char *data, int totalsize, char *uri){
+
+  int temp_time_stamp = INT_MAX;
+  int lru_index = -1;
+  int empty_slot = -1;
+
+  for(int i=0; i<10; i++){
+
+    if(cache[i].valid == 0){
+      empty_slot = i;
+      break;
+    }
+    
+    if(cache[i].timestamp < temp_time_stamp){
+      temp_time_stamp = cache[i].timestamp;
+      lru_index = i;
+    }
+
+  }
+
+  int index = (empty_slot != -1) ? empty_slot : lru_index;
+
+  if (cache[index].valid && cache[index].data) {
+    Free(cache[index].data); 
+  }
+
+  cache[index].data = Malloc(totalsize);
+  memcpy(cache[index].data, data, totalsize);
+  cache[index].size = totalsize;
+  cache[index].timestamp = global_timestamp++;
+  strncpy(cache[index].uri, uri, MAXLINE-1);
+  cache[index].uri[MAXLINE-1] = '\0';
+  cache[index].valid = 1;
+
 }
