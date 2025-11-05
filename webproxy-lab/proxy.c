@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "csapp.h"
 
 /* Recommended max cache and object sizes */
 #define MAX_CACHE_SIZE 1049000
@@ -9,8 +10,163 @@ static const char *user_agent_hdr =
     "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:10.0.3) Gecko/20120305 "
     "Firefox/10.0.3\r\n";
 
-int main()
+void doit(int fd);
+void read_requesthdrs(rio_t *rp);
+void parse_uri(char *uri, char *host, char *port, char *path);
+void serve_static(int fd, char *filename, int filesize);
+void get_filetype(char *filename, char *filetype);
+void serve_dynamic(int fd, char *filename, char *cgiargs);
+void clienterror(int fd, char *cause, char *errnum, char *shortmsg, char *longmsg);
+
+int main(int argc, char **argv)
 {
-  printf("%s", user_agent_hdr);
-  return 0;
+  int listenfd, connfd;
+  char hostname[MAXLINE], port[MAXLINE];
+  socklen_t clientlen;
+  struct sockaddr_storage clientaddr;
+
+  /* Check command line args */ 
+  if (argc != 2)
+  {
+    fprintf(stderr, "usage: %s <port>\n", argv[0]);
+    exit(1);
+  }
+
+  Signal(SIGPIPE, SIG_IGN);
+
+  listenfd = Open_listenfd(argv[1]);
+  while (1)
+  {
+    clientlen = sizeof(clientaddr);
+    connfd = Accept(listenfd, (SA *)&clientaddr,
+                    &clientlen); // line:netp:tiny:accept
+    Getnameinfo((SA *)&clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE,
+                0);
+    printf("Accepted connection from (%s, %s)\n", hostname, port);
+    doit(connfd);  // line:netp:tiny:doit
+    Close(connfd); // line:netp:tiny:close
+  }
+}
+
+/*
+ * doit - handle one HTTP request/response transaction
+ */
+void doit(int fd)
+{
+
+  rio_t rio_client, rio_server;
+  char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
+  char host[MAXLINE], port[MAXLINE], path[MAXLINE];
+  char request_buf[MAXBUF];
+  char *p = request_buf;
+  int remaining = MAXBUF;
+  int n, serverfd;
+
+  Rio_readinitb(&rio_client, fd);
+  if(!Rio_readlineb(&rio_client, buf, MAXLINE)) return;
+  printf("Request line from browser:\n");
+  printf("%s", buf);
+  sscanf(buf, "%s %s %s", method, uri, version);
+
+  if(strcasecmp(method, "GET")){
+    clienterror(fd, method, "501", "NOT implemented", "Tiny does not implement this method");
+    return;
+  }
+
+  read_requesthdrs(&rio_client);
+
+  parse_uri(uri, host, port, path);
+
+  n = snprintf(p, remaining, "GET %s HTTP/1.0\r\n", path);
+  p += n; remaining -= n;
+  n = snprintf(p, remaining, "Host: %s\r\n", host);
+  p += n; remaining -= n;
+  n = snprintf(p, remaining, "%s", user_agent_hdr);
+  p += n; remaining -= n;
+  n = snprintf(p, remaining, "Connection: close\r\n");
+  p += n; remaining -= n;
+  n = snprintf(p, remaining, "Proxy-Connection: close\r\n\r\n");
+  p += n; remaining -= n;
+
+  serverfd = Open_clientfd(host, port);
+
+  Rio_writen(serverfd, request_buf, strlen(request_buf));
+  Rio_readinitb(&rio_server, serverfd);
+
+  while((n = Rio_readn(serverfd, buf, MAXLINE)) > 0){
+    Rio_writen(fd, buf, n);
+  }
+
+  Close(serverfd);
+
+}
+
+/*
+ * read_requesthdrs - read HTTP request headers
+ */
+void read_requesthdrs(rio_t *rp)
+{
+  char buf[MAXLINE];
+
+  Rio_readlineb(rp, buf, MAXLINE);
+  printf("%s", buf);
+  while (strcmp(buf, "\r\n"))
+  {
+    Rio_readlineb(rp, buf, MAXLINE);
+    printf("%s", buf);
+  }
+  return;
+}
+
+//http://www.google.com/
+void parse_uri(char *uri, char *host, char *port, char *path){
+
+  char *ptr_start = strstr(uri, "//");
+  ptr_start += 2;
+
+  char *ptr_path = strchr(ptr_start, '/');
+  if(ptr_path){
+    strcpy(path, ptr_path);
+    *ptr_path = '\0';
+  }
+  else strcpy(path, "/");
+
+  char *ptr_port = strchr(ptr_start, ':');
+  if(ptr_port){
+    strcpy(port, ptr_port+1);
+    *ptr_port = '\0';
+  }
+  else strcpy(port, "80");
+
+  strcpy(host, ptr_start);
+
+}
+
+
+/*
+ * clienterror - returns an error message to the client
+ */
+void clienterror(int fd, char *cause, char *errnum,
+                 char *shortmsg, char *longmsg)
+{
+  char buf[MAXLINE], body[MAXBUF];
+
+  /* Build the HTTP response body */
+  sprintf(body, "<html><title>Tiny Error</title>");
+  sprintf(body, "%s<body bgcolor="
+                "ffffff"
+                ">\r\n",
+          body);
+  sprintf(body, "%s%s: %s\r\n", body, errnum, shortmsg);
+  sprintf(body, "%s<p>%s: %s\r\n", body, longmsg, cause);
+  sprintf(body, "%s<hr><em>The Tiny Web server</em>\r\n", body);
+
+  /* Print the HTTP response */
+  sprintf(buf, "HTTP/1.0 %s %s\r\n", errnum, shortmsg);
+  Rio_writen(fd, buf, strlen(buf));
+  sprintf(buf, "Content-type: text/html\r\n");
+  Rio_writen(fd, buf, strlen(buf));
+  sprintf(buf, "Content-length: %d\r\n\r\n", (int)strlen(body));
+  Rio_writen(fd, buf, strlen(buf));
+  Rio_writen(fd, body, strlen(body));
 }
